@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Python wrapper for Echo360 Capture Device API Version 3_0
-# http://confluence.echo360.com/display/54/Capture+Device+API
+# http://confluence.echo360.com/display/54/Capture+Appliance+API
 #
 # These tools are not associated with echo360.com This is an independant effort
 # to implement a python wrapper for their API.

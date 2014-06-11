@@ -2,7 +2,7 @@
 
 ## Summary
 
-The Python script `capture_device.py` is a wrapper that implements [Echo360 Capture Device API Version 3_0](http://confluence.echo360.com/display/54/Capture+Device+API).
+The Python script `capture_device.py` is a wrapper that implements [Echo360 Capture Device API Version 3_0](http://confluence.echo360.com/display/54/Capture+Appliance+API).
 
 It is useful as a support tool to control and monitor a capture device.
 
