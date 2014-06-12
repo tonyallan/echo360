@@ -641,11 +641,11 @@ if __name__ == '__main__':
         if args.command == 'system-status':
             print(str(device.status_system(dump_xml=args.xml)))
         elif args.command == 'status':
-            print(device.capture_status_str(dump_xml=args.xml))
+            print(device.capture_status_str())
             if args.count > 1:
                 for i in range(1, args.count):
                     try:
-                        print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+                        print(device.capture_status_str(sleep=args.sleep))
                     except socket.timeout as e:
                         print('Network connection timeout.')
                     except socket.error as e:
@@ -653,23 +653,23 @@ if __name__ == '__main__':
                             print('Capture Device connection refused (SSL): {0}'.format(args.server))
         # TODO: monitoring_snapshot(self, url)
         elif args.command == 'new-capture':
-            print(str(device.capture_new_capture(args.duration, args.profile , args.description)))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_new_capture(args.duration, args.profile , args.description, dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'confidence-monitor':
-            print(str(device.capture_confidence_monitor(args.duration, args.profile , args.description)))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_confidence_monitor(args.duration, args.profile , args.description, dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'pause':
-            print(str(device.capture_pause()))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_pause(dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'resume':
-            print(str(device.capture_record()))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_record(dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'extend':
-            print(str(device.capture_extend(args.duration)))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_extend(args.duration, dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'stop':
-            print(str(device.capture_stop()))
-            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
+            print(str(device.capture_stop(dump_xml=args.xml)))
+            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'status-get-user-sections':
             # TODO: print(str(device.status_get_user_sections()))
             print('Not implemented yet.')
