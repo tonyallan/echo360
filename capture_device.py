@@ -96,6 +96,12 @@ class Echo360CaptureDevice(object):
                     text += '; confidence monitoring={0}'.format(response.confidence_monitoring)
             return text
         else:
+            if response._result_code == 401:
+                return 'User {0} is not authorised to perform status/monitoring, '.format(self.username) + \
+                    'or username or password are not correct.'
+
+
+
             return 'Unknown deviceerror ({0}): {1}'.format(
                 response._result_code, response._result_message)
 
@@ -566,14 +572,18 @@ class Echo360CaptureDeviceResponse(object):
                 self._result_message = None
 
     def __str__(self):
-        string = '{0}: {1} {2}'.format(self._command, self._result_code, self._result_message)
-        data = []
-        for key in sorted(self.__dict__):
-            if not key.startswith('_'):
-                data.append('{0}: {1}'.format(key, self.__dict__[key]))
-        if len(data) > 0:
-            string += '\nData: ' + '\n  '.join(data)
-        return string
+        # Useful for testing and in CLI situations.
+        if self.success():
+            string = '{0}: {1} {2}'.format(self._command, self._result_code, self._result_message)
+            data = []
+            for key in sorted(self.__dict__):
+                if not key.startswith('_'):
+                    data.append('{0}: {1}'.format(key, self.__dict__[key]))
+            if len(data) > 0:
+                string += '\nData: ' + '\n  '.join(data)
+            return string
+        else:
+            return 'Command failed {0}: {1} {2}'.format(self._command, self._result_code, self._result_message)
 
     def success(self):
         return self._result_code == 'success'
@@ -592,6 +602,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--command', help='command (e.g. status)', default='status',
         choices=['system-status', 'status', 
             'new-capture', 'confidence-monitor', 'pause', 'resume', 'extend', 'stop',
+            'status-get-user-sections', 'status-get-user-ref', 'diagnostics-clear-cache',
             'ping', 'traceroute', 'restart-all', 'reboot', 'system-info',
             'test-system', 'test-status', 'test-capture', 'test-confidence'])
     parser.add_argument('--duration', help='duration (seconds)', default=3600+1800, type=int)
@@ -609,8 +620,12 @@ if __name__ == '__main__':
         # test access
         if not device.connection_test.success():
             if device.connection_test._result_code == 401:
-                print('Error (401): Incorrect capture device username or password.')
-                sys.exit(1)
+                if args.user == 'admin':
+                    print('Error (401): Incorrect capture device username or password.')
+                    sys.exit(1)
+                else:
+                    print('Info: User {0} not authorised to perform admin only command (status/system).'.format(args.user))
+                    # continue anyway
             elif device.connection_test._result_code == 404:
                 print('Error (404): Capture Device API error: not found.')
                 sys.exit(4)
@@ -651,9 +666,13 @@ if __name__ == '__main__':
         elif args.command == 'stop':
             print(str(device.capture_stop()))
             print(device.capture_status_str(sleep=args.sleep))
-        # TODO: status_get_user_sections
-        # TODO: status_get_user_ref
-        # TODO: diagnostics_clear_cache
+        elif args.command == 'status-get-user-sections':
+            # TODO: print(str(device.status_get_user_sections()))
+            print('Not implemented yet.')
+        elif args.command == 'status-get-user-ref':
+            print(str(device.status_get_user_ref()))
+        elif args.command == 'diagnostics-clear-cache':
+            print(str(device.diagnostics_clear_cache()))
         elif args.command == 'ping':
             response = device.diagnostics_ping(args.url)
             print('{0}\n{1}'.format(str(response), response._data))
