@@ -148,6 +148,7 @@ class Echo360CaptureDevice(object):
         response.add_timestamp('next/schedule/start-time')
         response.add_value('next/schedule/duration')
         response.add_value('next/parameters/title')
+        response.add_value('next/parameters/section')
         response.add_value('next/parameters/name-key')
         response.add_value('next/state')
         response.add_timestamp('next/start-time')
@@ -170,6 +171,7 @@ class Echo360CaptureDevice(object):
         response.add_timestamp('current/schedule/start-time')
         response.add_value('current/schedule/duration')
         response.add_value('current/parameters/title')
+        response.add_value('current/parameters/section')
         response.add_value('current/parameters/name-key')
         response.add_value('current/state')
         response.add_timestamp('current/start-time')
@@ -604,6 +606,7 @@ if __name__ == '__main__':
             'new-capture', 'confidence-monitor', 'pause', 'resume', 'extend', 'stop',
             'status-get-user-sections', 'status-get-user-ref', 'diagnostics-clear-cache',
             'ping', 'traceroute', 'restart-all', 'reboot', 'system-info',
+            'status-captures', 'status-current-capture', 'status-next-capture',
             'test-system', 'test-status', 'test-capture', 'test-confidence'])
     parser.add_argument('--duration', help='duration (seconds)', default=3600+1800, type=int)
     parser.add_argument('--profile', help='profile name', default=None)
@@ -699,6 +702,12 @@ if __name__ == '__main__':
             response = device.diagnostics_system_info_dmesg()
             t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
             print('{0}\n{1}'.format(str(response), t))
+        elif args.command == 'status-captures':
+            print(str(device.status_captures()))
+        elif args.command == 'status-current-capture':
+            print(str(device.status_current_capture()))
+        elif args.command == 'status-next-capture':
+            print(str(device.status_next_capture()))
         elif args.command == 'test-system':
             print('\nDevice status_system')
             print(str(device.status_system()))
