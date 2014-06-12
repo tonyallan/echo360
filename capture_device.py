@@ -653,22 +653,22 @@ if __name__ == '__main__':
                             print('Capture Device connection refused (SSL): {0}'.format(args.server))
         # TODO: monitoring_snapshot(self, url)
         elif args.command == 'new-capture':
-            print(str(device.capture_new_capture(args.duration, args.profile , args.description, dump_xml=args.xml)))
+            print(str(device.capture_new_capture(args.duration, args.profile , args.description)))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'confidence-monitor':
-            print(str(device.capture_confidence_monitor(args.duration, args.profile , args.description, dump_xml=args.xml)))
+            print(str(device.capture_confidence_monitor(args.duration, args.profile , args.description)))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'pause':
-            print(str(device.capture_pause(dump_xml=args.xml)))
+            print(str(device.capture_pause()))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'resume':
-            print(str(device.capture_record(dump_xml=args.xml)))
+            print(str(device.capture_record()))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'extend':
-            print(str(device.capture_extend(args.duration, dump_xml=args.xml)))
+            print(str(device.capture_extend(args.duration)))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'stop':
-            print(str(device.capture_stop(dump_xml=args.xml)))
+            print(str(device.capture_stop()))
             print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'status-get-user-sections':
             # TODO: print(str(device.status_get_user_sections()))
@@ -676,7 +676,7 @@ if __name__ == '__main__':
         elif args.command == 'status-get-user-ref':
             print(str(device.status_get_user_ref(dump_xml=args.xml)))
         elif args.command == 'diagnostics-clear-cache':
-            print(str(device.diagnostics_clear_cache(dump_xml=args.xml)))
+            print(str(device.diagnostics_clear_cache()))
         elif args.command == 'ping':
             response = device.diagnostics_ping(args.url)
             print('{0}\n{1}'.format(str(response), response._data))
@@ -726,26 +726,26 @@ if __name__ == '__main__':
         elif args.command == 'test-capture':
             sleep = args.sleep
             print('\nstop; new_capture; pause; record; extend; pause; stop')
-            print(str(device.capture_stop(dump_xml=args.xml)))
+            print(str(device.capture_stop()))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_new_capture(3500, 'Trinity Standard Lecture', 'test from python', dump_xml=args.xml)))
+            print(str(device.capture_new_capture(3500, 'Trinity Standard Lecture', 'test from python')))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_pause(dump_xml=args.xml)))
+            print(str(device.capture_pause()))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_record(dump_xml=args.xml)))
+            print(str(device.capture_record()))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_extend(400, dump_xml=args.xml)))
+            print(str(device.capture_extend(400)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_pause(dump_xml=args.xml)))
+            print(str(device.capture_pause()))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_stop(dump_xml=args.xml)))
+            print(str(device.capture_stop()))
             print(device.capture_status_str(sleep=sleep))
         elif args.command == 'test-confidence':
             sleep = args.sleep
             print('\nconfidence_monitor; stop')
-            print(str(device.capture_confidence_monitor(360, 'Trinity Standard Lecture', 'test from python', dump_xml=args.xml)))
+            print(str(device.capture_confidence_monitor(360, 'Trinity Standard Lecture', 'test from python')))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_stop(dump_xml=args.xml)))
+            print(str(device.capture_stop()))
             print(device.capture_status_str(sleep=sleep))
 
     except KeyboardInterrupt:
