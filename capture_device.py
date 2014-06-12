@@ -51,7 +51,7 @@ class Echo360CaptureDevice(object):
         if self.connection_test.success():
             self.utc_offset = self.connection_test.utc_offset
 
-    def call_api(self, command, method=None, post_data=None, title=None):
+    def call_api(self, command, method=None, post_data=None, title=None, dump_xml=None):
         if method is None:
             if post_data is None:
                 method = 'GET'
@@ -72,10 +72,10 @@ class Echo360CaptureDevice(object):
             # 409 Conflict is used as an error response for capture/stop, capture/confidence_monitor and possibly others
             # just wait until the text is provided.
             return Echo360CaptureDeviceResponse(command, resp.status, resp.reason, data=resp_data, xml_data=xml_data,
-                device=self, utc_offset=self.utc_offset, title=title)
+                device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
         else:
             return Echo360CaptureDeviceResponse(command, 'success', 'Ok', data=resp_data, xml_data=xml_data, 
-                device=self, utc_offset=self.utc_offset, title=title)
+                device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
 
     def fetch_file(self, command):
         pass
@@ -99,9 +99,6 @@ class Echo360CaptureDevice(object):
             if response._result_code == 401:
                 return 'User {0} is not authorised to perform status/monitoring, '.format(self.username) + \
                     'or username or password are not correct.'
-
-
-
             return 'Unknown deviceerror ({0}): {1}'.format(
                 response._result_code, response._result_message)
 
@@ -112,13 +109,13 @@ class Echo360CaptureDevice(object):
     # The Status API calls are used to return status and capture information for the device. The Status calls 
     # in this section are GET only, and are used specifically to retrieve information.
 
-    def status_system(self):
+    def status_system(self, dump_xml=None):
         """
         (3.1.1) Get System Status returns the current status of the device.
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/system"
         """
-        response = self.call_api('status/system', title='Get System Status')
+        response = self.call_api('status/system', title='Get System Status', dump_xml=dump_xml)
         if response.success():
             response.add_timestamp('wall-clock-time')
             response.add_value('content/state')
@@ -129,13 +126,13 @@ class Echo360CaptureDevice(object):
             response.add_timestamp('last-sync')
         return response
 
-    def status_captures(self):
+    def status_captures(self, dump_xml=None):
         """
         (3.1.2) Get Capture Status returns information on the status of both the next and the current capture.
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/captures"
         """
-        response = self.call_api('status/captures', title='Get Capture Status')
+        response = self.call_api('status/captures', title='Get Capture Status', dump_xml=dump_xml)
         if response.success():
             response.add_timestamp('wall-clock-time')
             self._current_capture(response)
@@ -147,20 +144,20 @@ class Echo360CaptureDevice(object):
         response.add_value('next/schedule/type')
         response.add_timestamp('next/schedule/start-time')
         response.add_value('next/schedule/duration')
-        response.add_value('next/parameters/title')
-        response.add_value('next/parameters/section')
-        response.add_value('next/parameters/name-key')
+        response.add_value('next/schedule/parameters/title')
+        response.add_value('next/schedule/parameters/section')
+        response.add_value('next/schedule/parameters/name-key')
         response.add_value('next/state')
         response.add_timestamp('next/start-time')
         response.add_value('next/duration')
 
-    def status_next_capture(self):
+    def status_next_capture(self, dump_xml=None):
         """
         (3.1.3) Get Next Capture Status returns information on the status of only the next capture.
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/next_capture"
         """
-        response = self.call_api('status/next_capture', title='Get Next Capture Status')
+        response = self.call_api('status/next_capture', title='Get Next Capture Status', dump_xml=dump_xml)
         if response.success(): 
             response.add_timestamp('wall-clock-time')
             self._next_capture(response)
@@ -170,27 +167,27 @@ class Echo360CaptureDevice(object):
         response.add_value('current/schedule/type')
         response.add_timestamp('current/schedule/start-time')
         response.add_value('current/schedule/duration')
-        response.add_value('current/parameters/title')
-        response.add_value('current/parameters/section')
-        response.add_value('current/parameters/name-key')
+        response.add_value('current/schedule/parameters/title')
+        response.add_value('current/schedule/parameters/section')
+        response.add_value('current/schedule/parameters/name-key')
         response.add_value('current/state')
         response.add_timestamp('current/start-time')
         response.add_value('current/duration')
 
-    def status_current_capture(self):
+    def status_current_capture(self, dump_xml=None):
         """
         (3.1.4) Get Current Capture Status returns information on the status of only the current capture.
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/current_capture"
         """
-        response = self.call_api('status/current_capture', title='Get Current Capture Status')
+        response = self.call_api('status/current_capture', title='Get Current Capture Status', dump_xml=dump_xml)
         if response.success(): 
             response.add_timestamp('wall-clock-time')
             self._current_capture(response)
             response.state = response.current_state
         return response
 
-    def status_monitoring(self):
+    def status_monitoring(self, dump_xml=None):
         """
         (3.1.5) Get Capture Status with Monitoring Information returns real-time monitoring information on the 
         current capture. This call is useful for returning the filename for a thumbnail (display or 
@@ -199,7 +196,7 @@ class Echo360CaptureDevice(object):
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/monitoring"
         """
-        response = self.call_api('status/monitoring', title='Get Capture Status with Monitoring Information')
+        response = self.call_api('status/monitoring', title='Get Capture Status with Monitoring Information', dump_xml=dump_xml)
         if response.success(): 
             response.add_value('state')
             response.add_timestamp('start-time')
@@ -207,7 +204,7 @@ class Echo360CaptureDevice(object):
             response.add_value('confidence-monitoring')
         return response
 
-    def monitoring_snapshot(self, url):
+    def monitoring_snapshot(self, url, dump_xml=None):
         """
         (3.1.6) Show Current Video or Display View returns a snapshot image of the video or display input  
         for the current capture. This is an image of what the Video input or Display input for the current 
@@ -227,7 +224,7 @@ class Echo360CaptureDevice(object):
         """
         raise "unimplemented"
 
-    def status_get_user_sections(self):
+    def status_get_user_sections(self, dump_xml=None):
         """
         (3.1.7) Get User Sections returns a list of the sections assigned to the user whose credentials 
         (username and password) are sent with the API call. Response includes both Section Name and 
@@ -235,16 +232,16 @@ class Echo360CaptureDevice(object):
 
         curl --silent --user $adminlogincreds --insecure --url $apiurl"/status/get_user_sections"
         """
-        return self.call_api('status/get_user_sections', title='Get User Sections')
+        return self.call_api('status/get_user_sections', title='Get User Sections', dump_xml=dump_xml)
 
-    def status_get_user_ref(self):
+    def status_get_user_ref(self, dump_xml=None):
         """
         (3.1.8) Get Authenticated User Reference ID returns the user reference ID (GUID) of the user whose 
         credentials (username and password) are sent with the API call.
 
         curl --user admin:password --insecure --url https://192.168.61.10:8443/status/get_user_ref
         """
-        response = self.call_api('status/get_user_ref', title='Get Authenticated User Reference ID')
+        response = self.call_api('status/get_user_ref', title='Get Authenticated User Reference ID', dump_xml=dump_xml)
         if response.success():
             response.add_value('', name='authenticated-user-ref')
         return response        
@@ -497,7 +494,7 @@ class Echo360CaptureDeviceResponse(object):
     """
 
     def __init__(self, command=None, result_code=None, result_message=None, data=None, xml_data=None, 
-            device=None, utc_offset=None, title=None):
+            device=None, utc_offset=None, title=None, dump_xml=None):
         self._command = command.replace('/', '_').replace('-', '_')
         self._result_code = result_code
         self._result_message = result_message
@@ -506,6 +503,7 @@ class Echo360CaptureDeviceResponse(object):
         self.title(title)
         self._device = device
         self._utc_offset = utc_offset
+        self._dump_xml = dump_xml
 
     def title(self, new_title):
         if new_title is None:
@@ -583,6 +581,8 @@ class Echo360CaptureDeviceResponse(object):
                     data.append('{0}: {1}'.format(key, self.__dict__[key]))
             if len(data) > 0:
                 string += '\nData: ' + '\n  '.join(data)
+            if self._dump_xml:
+                string = string + '\nRaw XML:\n' + self._data
             return string
         else:
             return 'Command failed {0}: {1} {2}'.format(self._command, self._result_code, self._result_message)
@@ -613,6 +613,7 @@ if __name__ == '__main__':
     parser.add_argument('--description', help='description', default='capture-device.py')
     parser.add_argument('--count', help='execute command multiple times', default=1, type=int)
     parser.add_argument('--url', help='url for ping and traceroute', default=None)
+    parser.add_argument('--xml', help='Print the raw XML', action='store_true')
     args = parser.parse_args()
 
     # wrap the whole thing in a try/except to catch network errors
@@ -638,13 +639,13 @@ if __name__ == '__main__':
                 sys.exit(49)
 
         if args.command == 'system-status':
-            print(str(device.status_system()))
+            print(str(device.status_system(dump_xml=args.xml)))
         elif args.command == 'status':
-            print(device.capture_status_str())
+            print(device.capture_status_str(dump_xml=args.xml))
             if args.count > 1:
                 for i in range(1, args.count):
                     try:
-                        print(device.capture_status_str(sleep=args.sleep))
+                        print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
                     except socket.timeout as e:
                         print('Network connection timeout.')
                     except socket.error as e:
@@ -653,29 +654,29 @@ if __name__ == '__main__':
         # TODO: monitoring_snapshot(self, url)
         elif args.command == 'new-capture':
             print(str(device.capture_new_capture(args.duration, args.profile , args.description)))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'confidence-monitor':
             print(str(device.capture_confidence_monitor(args.duration, args.profile , args.description)))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'pause':
             print(str(device.capture_pause()))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'resume':
             print(str(device.capture_record()))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'extend':
             print(str(device.capture_extend(args.duration)))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'stop':
             print(str(device.capture_stop()))
-            print(device.capture_status_str(sleep=args.sleep))
+            print(device.capture_status_str(sleep=args.sleep, dump_xml=args.xml))
         elif args.command == 'status-get-user-sections':
             # TODO: print(str(device.status_get_user_sections()))
             print('Not implemented yet.')
         elif args.command == 'status-get-user-ref':
-            print(str(device.status_get_user_ref()))
+            print(str(device.status_get_user_ref(dump_xml=args.xml)))
         elif args.command == 'diagnostics-clear-cache':
-            print(str(device.diagnostics_clear_cache()))
+            print(str(device.diagnostics_clear_cache(dump_xml=args.xml)))
         elif args.command == 'ping':
             response = device.diagnostics_ping(args.url)
             print('{0}\n{1}'.format(str(response), response._data))
@@ -703,48 +704,48 @@ if __name__ == '__main__':
             t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
             print('{0}\n{1}'.format(str(response), t))
         elif args.command == 'status-captures':
-            print(str(device.status_captures()))
+            print(str(device.status_captures(dump_xml=args.xml)))
         elif args.command == 'status-current-capture':
-            print(str(device.status_current_capture()))
+            print(str(device.status_current_capture(dump_xml=args.xml)))
         elif args.command == 'status-next-capture':
-            print(str(device.status_next_capture()))
+            print(str(device.status_next_capture(dump_xml=args.xml)))
         elif args.command == 'test-system':
             print('\nDevice status_system')
-            print(str(device.status_system()))
+            print(str(device.status_system(dump_xml=args.xml)))
         elif args.command == 'test-status':
             print('\nDevice status_system')
-            print(str(device.status_system()))
+            print(str(device.status_system(dump_xml=args.xml)))
             print('\nDevice status_monitoring')
-            print(str(device.status_monitoring()))
+            print(str(device.status_monitoring(dump_xml=args.xml)))
             print('\nDevice status_captures')
-            print(str(device.status_captures()))
+            print(str(device.status_captures(dump_xml=args.xml)))
             print('\nDevice status_current_capture')
-            print(str(device.status_current_capture()))
+            print(str(device.status_current_capture(dump_xml=args.xml)))
             print('\nDevice status_next_capture')
-            print(str(device.status_next_capture()))
+            print(str(device.status_next_capture(dump_xml=args.xml)))
         elif args.command == 'test-capture':
             sleep = args.sleep
             print('\nstop; new_capture; pause; record; extend; pause; stop')
-            print(str(device.capture_stop()))
+            print(str(device.capture_stop(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_new_capture(3500, 'Trinity Standard Lecture', 'test from python')))
+            print(str(device.capture_new_capture(3500, 'Trinity Standard Lecture', 'test from python', dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_pause()))
+            print(str(device.capture_pause(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_record()))
+            print(str(device.capture_record(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_extend(400)))
+            print(str(device.capture_extend(400, dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_pause()))
+            print(str(device.capture_pause(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_stop()))
+            print(str(device.capture_stop(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
         elif args.command == 'test-confidence':
             sleep = args.sleep
             print('\nconfidence_monitor; stop')
-            print(str(device.capture_confidence_monitor(360, 'Trinity Standard Lecture', 'test from python')))
+            print(str(device.capture_confidence_monitor(360, 'Trinity Standard Lecture', 'test from python', dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
-            print(str(device.capture_stop()))
+            print(str(device.capture_stop(dump_xml=args.xml)))
             print(device.capture_status_str(sleep=sleep))
 
     except KeyboardInterrupt:
