@@ -34,13 +34,12 @@ import socket
 import sys
 import time
 import urllib2
+import urlparse
 import xml.etree.ElementTree as ET
 
 class Echo360CaptureDevice(object):
     # This class is a wrapper for the Echo360 Capture device API.
     def __init__(self, server, username, password, debuglevel=None, timeout=10):
-        # A new instance will immediately test access, fetch the device status and set the UTC offset.
-        # The UTC offset is used to create a local time version of timestamps in the API response data.
         self.server = server
         self.username = username
         self.password = password
@@ -48,8 +47,6 @@ class Echo360CaptureDevice(object):
         self.timeout = timeout
         self.utc_offset = None
         self.connection_test = self.status_system()
-        if self.connection_test.success():
-            self.utc_offset = self.connection_test.utc_offset
 
     def call_api(self, command, method=None, post_data=None, title=None, dump_xml=None):
         if method is None:
@@ -57,10 +54,20 @@ class Echo360CaptureDevice(object):
                 method = 'GET'
             else:
                 method = 'POST'
-        conn = httplib.HTTPSConnection(self.server, 443, timeout=self.timeout)
+        url = urlparse.urlparse(self.server)
+        if url.scheme == 'https':
+            conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
+        elif url.scheme == 'http':
+            conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
+        else:
+            # A simple ip address will be misparsed. Assume it is HTTPS
+            conn = httplib.HTTPSConnection(url.path, 443, timeout=self.timeout)
         if self.http_debuglevel is not None:
             conn.set_debuglevel(self.http_debuglevel)
-        headers = { 'Authorization' : 'Basic ' + base64.b64encode(self.username + ':' + self.password) }
+        if self.username is not None and self.password is not None: 
+            headers = { 'Authorization' : 'Basic ' + base64.b64encode(self.username + ':' + self.password) }
+        else:
+            headers = {}
         conn.request(method, '/' + command, post_data, headers)
         resp = conn.getresponse()
         resp_data = resp.read()
@@ -595,7 +602,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Echo360 Capture Device CLI',
         )
-    parser.add_argument('-s', '--server', help='capture device ip or name', default=None)
+    parser.add_argument('-s', '--server', help='capture device URL or IP address', required=True)
     parser.add_argument('-u', '--user', help='username', default='admin')
     parser.add_argument('-p', '--password', help='password', default=None)
     parser.add_argument('-d', '--debug', help='debug level', default=0, type=int)
@@ -631,7 +638,7 @@ if __name__ == '__main__':
                     print('Info: User {0} not authorised to perform admin only command (status/system).'.format(args.user))
                     # continue anyway
             elif device.connection_test._result_code == 404:
-                print('Error (404): Capture Device API error: not found.')
+                print('Error (404): Capture Device API error: command not found.')
                 sys.exit(4)
             else:
                 print('Unknown error ({0}): {1}'.format(
@@ -754,7 +761,7 @@ if __name__ == '__main__':
     except socket.timeout as e:
         # This exception is raised when a timeout occurs on a socket which has had
         # timeouts enabled via a prior call to settimeout().
-        print('Network connection timeout.')
+        print('Network connection timed out.')
         sys.exit(50)
 
     except socket.error as e:
@@ -764,7 +771,7 @@ if __name__ == '__main__':
             print('Unknown host: {0}'.format(args.server))
         elif e.errno == 61:
             # socket.error: [Errno 61] Connection refused
-            print('Server connection refused (SSL): {0}'.format(args.server))
+            print('Server connection refused: {0}'.format(args.server))
         elif e.errno is not None:
             print('Network error ({0}): {1}'.format(e.errno, e.strerror))
         else:
