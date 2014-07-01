@@ -44,9 +44,25 @@ class Echo360CaptureDevice(object):
         self.username = username
         self.password = password
         self.http_debuglevel = debuglevel
-        self.timeout = timeout
+        self.timeout = int(timeout)
         self.utc_offset = None
         self.connection_test = self.status_system()
+
+    def request(self, method, path, headers=None, body=None, timeout=None):
+        # allow override in a subclass to support other http libraries (such as Diesel.io)
+        url = urlparse.urlparse(urlparse.urljoin(self.server, path))
+        if url.scheme == 'https':
+            conn = httplib.HTTPSConnection(url.hostname, url.port) #, timeout=self.timeout)
+        elif url.scheme == 'http':
+            conn = httplib.HTTPConnection(url.hostname, url.port) #, timeout=self.timeout)
+        else:
+            # A simple ip address will be misparsed. Assume it is HTTPS
+            conn = httplib.HTTPSConnection(url.path, 443) #, timeout=self.timeout)
+        if self.http_debuglevel is not None:
+            conn.set_debuglevel(self.http_debuglevel)
+        conn.request(method, url.path, body, headers)
+        resp = conn.getresponse()
+        return (resp.status, resp.reason, dict(resp.getheaders()), resp.read())
 
     def call_api(self, command, method=None, post_data=None, title=None, dump_xml=None):
         if method is None:
@@ -54,34 +70,25 @@ class Echo360CaptureDevice(object):
                 method = 'GET'
             else:
                 method = 'POST'
-        url = urlparse.urlparse(self.server)
-        if url.scheme == 'https':
-            conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
-        elif url.scheme == 'http':
-            conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
-        else:
-            # A simple ip address will be misparsed. Assume it is HTTPS
-            conn = httplib.HTTPSConnection(url.path, 443, timeout=self.timeout)
-        if self.http_debuglevel is not None:
-            conn.set_debuglevel(self.http_debuglevel)
         if self.username is not None and self.password is not None: 
             headers = { 'Authorization' : 'Basic ' + base64.b64encode(self.username + ':' + self.password) }
         else:
             headers = {}
-        conn.request(method, '/' + command, post_data, headers)
-        resp = conn.getresponse()
-        resp_data = resp.read()
-        if resp.getheader('Content-Type') == 'text/xml':
-            xml_data = ET.fromstring(resp_data)
+        (status, reason, headers, data) = self.request(method, command, headers, post_data, self.timeout)
+        if 'Content-Type' in headers and headers['Content-Type'] == 'text/xml':
+            xml_data = ET.fromstring(data)
+        # some libraries convert to lower-case
+        elif 'content-type' in headers and headers['content-type'] == 'text/xml':
+            xml_data = ET.fromstring(data)
         else:
             xml_data = None
-        if resp.status not in [200, 400, 409]:
+        if status not in [200, 400, 409]:
             # 409 Conflict is used as an error response for capture/stop, capture/confidence_monitor and possibly others
             # just wait until the text is provided.
-            return Echo360CaptureDeviceResponse(command, resp.status, resp.reason, data=resp_data, xml_data=xml_data,
+            return Echo360CaptureDeviceResponse(command, status, reason, data=data, xml_data=xml_data,
                 device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
         else:
-            return Echo360CaptureDeviceResponse(command, 'success', 'Ok', data=resp_data, xml_data=xml_data, 
+            return Echo360CaptureDeviceResponse(command, 'success', 'Ok', data=data, xml_data=xml_data, 
                 device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
 
     def fetch_file(self, command):
@@ -494,6 +501,9 @@ class Echo360CaptureDevice(object):
         response.check_for_error()
         return response               
 
+    def __str__(self):
+        return 'Cature device {0}, user {1}'.format(self.server, self.username)
+ 
 
 class Echo360CaptureDeviceResponse(object):
     """
@@ -602,7 +612,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Echo360 Capture Device CLI',
         )
-    parser.add_argument('-s', '--server', help='capture device URL or IP address', required=True)
+    parser.add_argument('-s', '--server', help='capture device ', required=True)
     parser.add_argument('-u', '--user', help='username', default='admin')
     parser.add_argument('-p', '--password', help='password', default=None)
     parser.add_argument('-d', '--debug', help='debug level', default=0, type=int)
@@ -757,6 +767,13 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print('\nCtrl-C User requested exit.')
+
+
+### TODO ### move inti class ###
+### TODO ### move inti class ###
+### TODO ### move inti class ###
+### TODO ### move inti class ###
+### TODO ### move inti class ###
 
     except socket.timeout as e:
         # This exception is raised when a timeout occurs on a socket which has had
