@@ -413,6 +413,8 @@ class Echo360CaptureDevice(object):
         Creates and starts a new ad-hoc capture using the parameters described in the table below. 
         All parameters must be defined.
 
+        'duration' is in seconds.
+
         curl --user $adminlogincreds --insecure --data "duration=300&capture_profile_name=display-audio&description=test-description" -d --url $apiurl"/capture/new_capture"
         # <ok text="Capture scheduled for start" />
         """
@@ -432,6 +434,8 @@ class Echo360CaptureDevice(object):
         If you want to confirm a real capture will work, use the Show Current Video or Display View call described 
         in section 3.1.6 above.
 
+        'duration' is in seconds.
+
         curl --user admin:password --insecure --data 'duration=900&capture_profile_name=Display/Video (Podcast/Vodcast/EchoPlayer).
             Optimized for quality/full motion video&description=test-description' 
             --url https://192.168.61.10:8443/capture/confidence_monitor
@@ -450,6 +454,8 @@ class Echo360CaptureDevice(object):
         parameter. Captures cannot be extended past the start time of the next scheduled capture.
         If the capture cannot be extended for the duration identified, the capture will be extended as far as 
         possible within the given schedule constraints.
+
+        'duration' is in seconds.
 
         curl --user $adminlogincreds --insecure --data "duration=300&extend=Submit+Query" --url $apiurl"/capture/extend"
         # <ok text="Extend by 300 seconds recieved" />
