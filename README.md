@@ -17,23 +17,81 @@ Simple help is available using:
 
 The following are examples of typical commands:
 ```
-python capture_device.py -s 10.10.10.10 -p "letmein" -c new-capture --profile "Standard Lecture"
-python capture_device.py -s 10.10.10.10 -p "letmein" -c confidence-monitor --profile "Standard Lecture"
-python capture_device.py -s 10.10.10.10 -p "letmein" -c status --count 4 --sleep 5
-python capture_device.py -s 10.10.10.10 -p "letmein" -c status --count 9999 --sleep 1
-python capture_device.py -s 10.10.10.10 -p "letmein" -c pause
-python capture_device.py -s 10.10.10.10 -p "letmein" -c resume
-python capture_device.py -s 10.10.10.10 -p "letmein" -c extend --duration 300
-python capture_device.py -s 10.10.10.10 -p "letmein" -c stop
-python capture_device.py -s 10.10.10.10 -p "letmein" -c ping --url www.google.com
-python capture_device.py -s 10.10.10.10 -p "letmein" -c traceroute --timeout 20 --url www.google.com
-python capture_device.py -s 10.10.10.10 -p "letmein" -c system-info --timeout 20
-python capture_device.py -s 10.10.10.10 -p "letmein" -c test-status
-python capture_device.py -s 10.10.10.10 -p "letmein" -c test-capture --sleep 15
-python capture_device.py -s 10.10.10.10 -p "letmein" -c test-confidence --sleep 15
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c new-capture --profile "Standard Lecture"
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c confidence-monitor --profile "Standard Lecture"
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c status --count 4 --sleep 5
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c status --count 9999 --sleep 1
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c pause
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c resume
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c extend --duration 300
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c stop
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c ping --url www.google.com
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c traceroute --timeout 20 --url www.google.com
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c system-info --timeout 20
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-status
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-capture --sleep 15
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-confidence --sleep 15
 ```
+The default username is `admin`.
 
-Replace the IP address 10.10.10.10 with the IP address of your Lecture Capture device.
+Replace the IP address (`10.10.10.10`) in the URL with the IP address of your Lecture Capture device.
+
+## Typical Usage
+Two command windows, one for monitoring:
+```
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c status --count 9999 --sleep 1
+```
+And the other for the control commands:
+```
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c new-capture --profile "Standard Lecture"
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c pause
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c resume
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c extend --duration 300
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c stop
+```
+The monitoring output while the commands above are executed will look something like:
+```
+...
+State=inactive
+State=waiting; duration=5400; start time (local)=2014-07-09T15:08:22
+State=waiting; duration=5400; start time (local)=2014-07-09T15:08:22
+State=waiting; duration=5400; start time (local)=2014-07-09T15:08:22
+State=waiting; duration=5400; start time (local)=2014-07-09T15:08:22
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+...
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+State=paused; duration=5400; start time (local)=2014-07-09T15:08:22
+State=paused; duration=5400; start time (local)=2014-07-09T15:08:22
+...
+State=paused; duration=5400; start time (local)=2014-07-09T15:08:22
+State=paused; duration=5400; start time (local)=2014-07-09T15:08:22
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+State=active; duration=5400; start time (local)=2014-07-09T15:08:22
+...
+State=active; duration=5700; start time (local)=2014-07-09T15:08:22
+State=active; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=complete; duration=5700; start time (local)=2014-07-09T15:08:22
+State=inactive
+State=inactive
+...
+```
 
 ## Python Classes
 
@@ -45,7 +103,7 @@ The script contains examples of how to use the classes `Echo360CaptureDevice` an
 from capture_device import Echo360CaptureDevice
 import sys
 
-device = Echo360CaptureDevice('10.10.10.10', 'admin', 'letmein', timeout=5)
+device = Echo360CaptureDevice('https://10.10.10.10', 'admin', 'letmein', timeout=5)
 
 if device.connection_test.success():
     print(str(device.status_system()))
@@ -66,4 +124,4 @@ Data: content_state: idle
   utc_offset: 600
   wall_clock_time: 2014-06-11T02:50:56.749Z
   wall_clock_time_local: 2014-06-11T12:50:56
-  ```
+```

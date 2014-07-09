@@ -24,7 +24,7 @@
 # ----------------------------------------------------------------------------
 # 
 # Can be used as a CLI tool (use --help) or as classes Echo360CaptureDevice(), Echo360CaptureDeviceResponse()
-# the CLI code shows class usage examples. 
+# the CLI code below shows class usage examples. 
 
 import argparse
 import base64
@@ -43,26 +43,55 @@ class Echo360CaptureDevice(object):
         self.server = server
         self.username = username
         self.password = password
-        self.http_debuglevel = debuglevel
+        self.debug = debuglevel
         self.timeout = int(timeout)
         self.utc_offset = None
         self.connection_test = self.status_system()
+        if self.connection_test.success():
+            self.utc_offset = self.connection_test.utc_offset
 
     def request(self, method, path, headers=None, body=None, timeout=None):
+        # Perform the request and all exception handling.
+        # Returns:
+        #     status   - HTTP status or an exception code
+        #     reason   - A human readable error message, HTTP reason or exception related message
+        #     headers  - A dict that may contain HTTP response headers
+        #     data     - None or response data.
         # allow override in a subclass to support other http libraries (such as Diesel.io)
         url = urlparse.urlparse(urlparse.urljoin(self.server, path))
+        if len(url.netloc) == 0:
+            return('Invalid URL', 'Missing IP address or domain name.', {}, None)
         if url.scheme == 'https':
-            conn = httplib.HTTPSConnection(url.hostname, url.port) #, timeout=self.timeout)
+            conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
         elif url.scheme == 'http':
-            conn = httplib.HTTPConnection(url.hostname, url.port) #, timeout=self.timeout)
+            conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
         else:
-            # A simple ip address will be misparsed. Assume it is HTTPS
-            conn = httplib.HTTPSConnection(url.path, 443) #, timeout=self.timeout)
-        if self.http_debuglevel is not None:
-            conn.set_debuglevel(self.http_debuglevel)
-        conn.request(method, url.path, body, headers)
-        resp = conn.getresponse()
-        return (resp.status, resp.reason, dict(resp.getheaders()), resp.read())
+            return('Invalid URL', 'The URL scheme must be http or https.', {}, None)
+        if self.debug is not None:
+            conn.set_debuglevel(self.debug)
+        try:
+            conn.request(method, url.path, body, headers)
+            resp = conn.getresponse()
+            return (resp.status, resp.reason, dict(resp.getheaders()), resp.read())
+        except socket.timeout as e:
+        # This exception is raised when a timeout occurs on a socket which has had
+        # timeouts enabled via a prior call to settimeout().
+            if timeout is None:
+                return('timeout', 'Network connection timed out.', {}, None)
+            else:
+                return('timeout', 'Network connection timed out (after {0} seconds).'.format(timeout), {}, None)
+        except socket.error as e:
+            # This exception is raised for socket-related errors.
+            if e.errno == 8:
+                # socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+                return('socket-8', 'Unknown host: {0}'.format(args.server), {}, None)
+            elif e.errno == 61:
+                # socket.error: [Errno 61] Connection refused
+                return('socket-61', 'Server connection refused: {0}'.format(args.server), {}, None)
+            elif e.errno is not None:
+                return('socket', 'Network error ({0}): {1}'.format(e.errno, e.strerror), {}, None)
+            else:
+                return('unknown', 'Network error: {0}'.format(repr(e)), {}, None)
 
     def call_api(self, command, method=None, post_data=None, title=None, dump_xml=None):
         if method is None:
@@ -71,10 +100,10 @@ class Echo360CaptureDevice(object):
             else:
                 method = 'POST'
         if self.username is not None and self.password is not None: 
-            headers = { 'Authorization' : 'Basic ' + base64.b64encode(self.username + ':' + self.password) }
+            req_headers = { 'Authorization' : 'Basic ' + base64.b64encode(self.username + ':' + self.password) }
         else:
-            headers = {}
-        (status, reason, headers, data) = self.request(method, command, headers, post_data, self.timeout)
+            req_headers = {}
+        (status, reason, headers, data) = self.request(method, command, req_headers, post_data, self.timeout)
         if 'Content-Type' in headers and headers['Content-Type'] == 'text/xml':
             xml_data = ET.fromstring(data)
         # some libraries convert to lower-case
@@ -82,13 +111,17 @@ class Echo360CaptureDevice(object):
             xml_data = ET.fromstring(data)
         else:
             xml_data = None
-        if status not in [200, 400, 409]:
-            # 409 Conflict is used as an error response for capture/stop, capture/confidence_monitor and possibly others
-            # just wait until the text is provided.
-            return Echo360CaptureDeviceResponse(command, status, reason, data=data, xml_data=xml_data,
+        if status == 200:
+            return Echo360CaptureDeviceResponse(command, 'success', 'Ok', data=data, xml_data=xml_data, 
                 device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
         else:
-            return Echo360CaptureDeviceResponse(command, 'success', 'Ok', data=data, xml_data=xml_data, 
+            # 409 Conflict is used as an error response for capture/stop, capture/confidence_monitor and possibly others
+            # 501 Is used as an error for capture/new-capture
+            if self.debug > 0:
+                print('Debug command {0}\nStatus: {1} reason:{2}'.format(command, status, reason))
+            if self.debug > 4:
+                print('Response data:\n{0}'.format(data))
+            return Echo360CaptureDeviceResponse(command, status, reason, data=data, xml_data=xml_data,
                 device=self, utc_offset=self.utc_offset, title=title, dump_xml=dump_xml)
 
     def fetch_file(self, command):
@@ -113,7 +146,7 @@ class Echo360CaptureDevice(object):
             if response._result_code == 401:
                 return 'User {0} is not authorised to perform status/monitoring, '.format(self.username) + \
                     'or username or password are not correct.'
-            return 'Unknown deviceerror ({0}): {1}'.format(
+            return 'Unknown device error ({0}): {1}'.format(
                 response._result_code, response._result_message)
 
     # (3) Device API Calls
@@ -522,7 +555,7 @@ class Echo360CaptureDeviceResponse(object):
         self._result_code = result_code
         self._result_message = result_message
         self._data = data
-        self._xml = xml_data
+        self._xml = xml_data    # might be None
         self.title(title)
         self._device = device
         self._utc_offset = utc_offset
@@ -539,7 +572,7 @@ class Echo360CaptureDeviceResponse(object):
             return self._title
 
     def add_value(self, xpath, name=None):
-        # Adds a value to the response using appribute name 'name'.
+        # Adds a value to the response using attribute name 'name'.
         # Return 'name' (e.g. 'start_time'). Method will fail if no XML data.
         # The attribute is set to the desired value, if found in the XML data, or None.
         if name is None:
@@ -582,17 +615,13 @@ class Echo360CaptureDeviceResponse(object):
         # check for:
         #    <ok text="Command (pause) submitted" />
         #    <error text="Failed on command (stop).  No capture is running." />
-        # Method will fail if no XML data.
-        if self._result_code == 'success':
+        if self._xml is not None:
             if self._xml.tag == 'ok':
                 self._result_code = 'success'
                 self._result_message = self._xml.attrib['text']
             elif self._xml.tag == 'error':
                 self._result_code = 'error'
                 self._result_message = self._xml.attrib['text']
-            else:
-                self._result_code = None
-                self._result_message = None
 
     def __str__(self):
         # Useful for testing and in CLI situations.
@@ -607,6 +636,8 @@ class Echo360CaptureDeviceResponse(object):
             if self._dump_xml:
                 string = string + '\nRaw XML:\n' + self._data
             return string
+        elif self._result_code == 401:
+            return 'You are not authorised to use the command {0}'.format(self._command)
         else:
             return 'Command failed {0}: {1} {2}'.format(self._command, self._result_code, self._result_message)
 
@@ -635,31 +666,26 @@ if __name__ == '__main__':
     parser.add_argument('--profile', help='profile name', default=None)
     parser.add_argument('--description', help='description', default='capture-device.py')
     parser.add_argument('--count', help='execute command multiple times', default=1, type=int)
-    parser.add_argument('--url', help='url for ping and traceroute', default=None)
+    parser.add_argument('--url', help='URL for ping and traceroute', default=None)
     parser.add_argument('--xml', help='Print the raw XML', action='store_true')
     args = parser.parse_args()
 
-    # wrap the whole thing in a try/except to catch network errors
-    try:
+    try:    # catch ctrl-c
         device = Echo360CaptureDevice(args.server, args.user, args.password, 
             debuglevel=args.debug, timeout=args.timeout)
 
         # test access
         if not device.connection_test.success():
             if device.connection_test._result_code == 401:
-                if args.user == 'admin':
-                    print('Error (401): Incorrect capture device username or password.')
-                    sys.exit(1)
-                else:
-                    print('Info: User {0} not authorised to perform admin only command (status/system).'.format(args.user))
-                    # continue anyway
+                print('Connection Test Error (401): Incorrect capture device username or password.')
+                sys.exit(1)
             elif device.connection_test._result_code == 404:
-                print('Error (404): Capture Device API error: command not found.')
-                sys.exit(4)
+                print('Connection Test Error (404): Capture Device API error: command not found.')
+                sys.exit(2)
             else:
-                print('Unknown error ({0}): {1}'.format(
-                    device.connection_test._result_code, device.connection_test._result_message))
-                sys.exit(49)
+                print('Connection Test Error ({0}): {1} to {2}'.format(
+                    device.connection_test._result_code, device.connection_test._result_message, args.server))
+                sys.exit(3)
 
         if args.command == 'system-status':
             print(str(device.status_system(dump_xml=args.xml)))
@@ -667,13 +693,7 @@ if __name__ == '__main__':
             print(device.capture_status_str())
             if args.count > 1:
                 for i in range(1, args.count):
-                    try:
-                        print(device.capture_status_str(sleep=args.sleep))
-                    except socket.timeout as e:
-                        print('Network connection timeout.')
-                    except socket.error as e:
-                        if e.errno == 61:
-                            print('Capture Device connection refused (SSL): {0}'.format(args.server))
+                    print(device.capture_status_str(sleep=args.sleep))
         # TODO: monitoring_snapshot(self, url)
         elif args.command == 'new-capture':
             print(str(device.capture_new_capture(args.duration, args.profile , args.description)))
@@ -701,31 +721,50 @@ if __name__ == '__main__':
         elif args.command == 'diagnostics-clear-cache':
             print(str(device.diagnostics_clear_cache()))
         elif args.command == 'ping':
-            response = device.diagnostics_ping(args.url)
-            print('{0}\n{1}'.format(str(response), response._data))
+            if args.url is None:
+                print("No ping URL specified. Use '--url'")
+            else:
+                response = device.diagnostics_ping(args.url)
+                if response.success():
+                    print('{0}\n{1}'.format(str(response), response._data))
+                else:
+                    print(str(response))
         elif args.command == 'traceroute':
-            response = device.diagnostics_traceroute(args.url)
-            t = response._data.replace('<br/>', '\n')
-            print('{0}\n{1}'.format(str(response), t))
+            if args.url is None:
+                print("No traceroute URL specified. Use '--url'")
+            else:
+                response = device.diagnostics_traceroute(args.url)
+                if response.success():
+                    t = response._data.replace('<br/>', '\n')
+                    print('{0}\n{1}'.format(str(response), t))
+                else:
+                    print(str(response))
         elif args.command == 'restart-all':
             print(str(device.diagnostics_restart_all()))
-            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'reboot':
             print(str(device.diagnostics_reboot()))
-            print(device.capture_status_str(sleep=args.sleep))
         elif args.command == 'system-info':
             response = device.diagnostics_system_info_ifconfig()
-            t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
-            print('{0}\n{1}'.format(str(response), t))
+            if response.success():
+                t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
+                print('{0}\n{1}'.format(str(response), t))
+            else:
+                print(str(response))
             # TODO: XML result
             # response = device.diagnostics_system_info_device()
             # print('{0}\n{1}'.format(str(response), response._data))
             response = device.diagnostics_system_info_top()
-            t = response._data.replace('<head><meta http-equiv="refresh" content="5"></head>', '')
-            print('{0}\n{1}'.format(str(response), t))
+            if response.success():
+                t = response._data.replace('<head><meta http-equiv="refresh" content="5"></head>', '').replace('<pre>', '\n').replace('</pre>', '\n')
+                print('{0}\n{1}'.format(str(response), t))
+            else:
+                print(str(response))
             response = device.diagnostics_system_info_dmesg()
-            t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
-            print('{0}\n{1}'.format(str(response), t))
+            if response.success():
+                t = response._data.replace('<pre>', '\n').replace('</pre>', '\n')
+                print('{0}\n{1}'.format(str(response), t))
+            else:
+                print(str(response))
         elif args.command == 'status-captures':
             print(str(device.status_captures(dump_xml=args.xml)))
         elif args.command == 'status-current-capture':
@@ -775,28 +814,3 @@ if __name__ == '__main__':
         print('\nCtrl-C User requested exit.')
 
 
-### TODO ### move inti class ###
-### TODO ### move inti class ###
-### TODO ### move inti class ###
-### TODO ### move inti class ###
-### TODO ### move inti class ###
-
-    except socket.timeout as e:
-        # This exception is raised when a timeout occurs on a socket which has had
-        # timeouts enabled via a prior call to settimeout().
-        print('Network connection timed out.')
-        sys.exit(50)
-
-    except socket.error as e:
-        # This exception is raised for socket-related errors.
-        if e.errno == 8:
-            # socket.gaierror: [Errno 8] nodename nor servname provided, or not known
-            print('Unknown host: {0}'.format(args.server))
-        elif e.errno == 61:
-            # socket.error: [Errno 61] Connection refused
-            print('Server connection refused: {0}'.format(args.server))
-        elif e.errno is not None:
-            print('Network error ({0}): {1}'.format(e.errno, e.strerror))
-        else:
-            print('Network error: {0}'.format(repr(e)))
-        sys.exit(51)
