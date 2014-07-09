@@ -5,7 +5,7 @@
 from capture_device import Echo360CaptureDevice
 import sys
 
-device = Echo360CaptureDevice('10.10.10.10', 'admin', 'letmein', timeout=5)
+device = Echo360CaptureDevice('https://10.10.10.10', 'admin', 'letmein', timeout=5)
 
 if device.connection_test.success():
     print(str(device.status_system()))
