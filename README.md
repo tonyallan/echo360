@@ -99,7 +99,7 @@ The script contains examples of how to use the classes `Echo360CaptureDevice` an
 
 `sample-status.py` is an example using the `status/system` API:
 
-```
+```python
 from capture_device import Echo360CaptureDevice
 import sys
 
@@ -138,12 +138,15 @@ The command `sudo nohup python echo360/monitor.py room_name &` will start the co
 
 ### Usage
 
-For the Raspberry Pi, the button mapping is as follows:
-- select - a (start)
-- left   - b (pause/resume)
-- right  - c (stop)
-- up     - t (button press test)
-- down   - s (display current status)
+The Raspberry Pi button and CLI character mapping is as follows:
+
+button | character | function
+------ | --------- | --------
+select | a | start
+left | b | pause/resume
+right | c | stop
+up | t | button press test
+down | s | display current status
 
 The functions (characters: `a`, `b`, `c`, `t`, `s`) can also be used from the command line.
 
@@ -169,10 +172,3 @@ Typical log output:
 [2014/07/21 00:57:36] {monitor} INFO:Message: State: inactive
 
 ```
-
-
-
-
-
-
-
