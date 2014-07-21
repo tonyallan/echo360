@@ -125,3 +125,54 @@ Data: content_state: idle
   wall_clock_time: 2014-06-11T02:50:56.749Z
   wall_clock_time_local: 2014-06-11T12:50:56
 ```
+
+## Sample device controller (Raspberry Pi)
+
+This is a proof of concept for a Smart Capture HD Python controller. It works from a Linux, OS/X command line, or a Raspberry Pi.
+
+Requires [diesel.io](http://diesel.io/).
+
+If used on a [Raspberry Pi](http://www.raspberrypi.org/) Model B, an [LCD Display](http://www.adafruit.com/products/1109) (and its associated [software](https://learn.adafruit.com/adafruit-16x2-character-lcd-plus-keypad-for-raspberry-pi/usage)) is recommended.
+
+The command `sudo nohup python echo360/monitor.py room_name &` will start the controller.
+
+### Usage
+
+For the Raspberry Pi, the button mapping is as follows:
+- select - a (start)
+- left   - b (pause/resume)
+- right  - c (stop)
+- up     - t (button press test)
+- down   - s (display current status)
+
+The functions (characters: `a`, `b`, `c`, `t`, `s`) can also be used from the command line.
+
+Typical log output:
+```
+[2014/07/21 00:56:46] {monitor} INFO:starting state change monitor for https://10.10.10.10 user admin
+[2014/07/21 00:56:46] {monitor} INFO:Commands: a=start/extend; b=pause/resume; c=stop
+[2014/07/21 00:56:46] {monitor} INFO:No command line input. Probably running as a daemon.
+[2014/07/21 00:56:46] {monitor} INFO:Ready for LCD button
+[2014/07/21 00:56:47] {monitor} INFO:Message: State: inactive
+[2014/07/21 00:56:55] {monitor} INFO:Execute user command: a
+[2014/07/21 00:56:55] {monitor} INFO:Change state to start
+[2014/07/21 00:56:55] {monitor} INFO:Message: Command: start
+[2014/07/21 00:56:55] {monitor} INFO:Device command: start
+[2014/07/21 00:56:55] {monitor} INFO:Name=Lecture Capture 2014-07-21 10:56 room_name
+[2014/07/21 00:56:56] {monitor} INFO:Message: State: waiting
+[2014/07/21 00:57:05] {monitor} INFO:Message: State: active
+[2014/07/21 00:57:17] {monitor} INFO:Execute user command: c
+[2014/07/21 00:57:17] {monitor} INFO:Change state to stop
+[2014/07/21 00:57:17] {monitor} INFO:Message: Command: stop
+[2014/07/21 00:57:17] {monitor} INFO:Device command: stop
+[2014/07/21 00:57:17] {monitor} INFO:Message: State: complete
+[2014/07/21 00:57:36] {monitor} INFO:Message: State: inactive
+
+```
+
+
+
+
+
+
+
