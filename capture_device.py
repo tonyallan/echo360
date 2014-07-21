@@ -61,12 +61,15 @@ class Echo360CaptureDevice(object):
         url = urlparse.urlparse(urlparse.urljoin(self.server, path))
         if len(url.netloc) == 0:
             return('Invalid URL', 'Missing IP address or domain name.', {}, None)
-        if url.scheme == 'https':
-            conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
-        elif url.scheme == 'http':
-            conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
-        else:
-            return('Invalid URL', 'The URL scheme must be http or https.', {}, None)
+        try:
+            if url.scheme == 'https':
+                conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
+            elif url.scheme == 'http':
+                conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
+            else:
+                return('Invalid URL', 'The URL scheme must be http or https.', {}, None)
+        except Exception as e:
+            return('unknown', 'Unknown error: {0}'.format(repr(e)), {}, None)
         if self.debug is not None:
             conn.set_debuglevel(self.debug)
         try:
