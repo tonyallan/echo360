@@ -134,7 +134,7 @@ Requires [diesel.io](http://diesel.io/).
 
 If used on a [Raspberry Pi](http://www.raspberrypi.org/) Model B, an [LCD Display](http://www.adafruit.com/products/1109) (and its associated [software](https://learn.adafruit.com/adafruit-16x2-character-lcd-plus-keypad-for-raspberry-pi/usage)) is recommended.
 
-The command `sudo nohup python echo360/monitor.py room_name &` will start the controller.
+The command `sudo python echo360/monitor.py room_name` or `sudo nohup python echo360/monitor.py room_name &` will start the controller. The script runs as `root` to access the LCD display.
 
 ### Usage
 
@@ -150,7 +150,7 @@ down | s | display current status
 
 The functions (characters: `a`, `b`, `c`, `t`, `s`) can also be used from the command line.
 
-Typical log output:
+Typical log output (log timestamps are UTC):
 ```
 [2014/07/21 00:56:46] {monitor} INFO:starting state change monitor for https://10.10.10.10 user admin
 [2014/07/21 00:56:46] {monitor} INFO:Commands: a=start/extend; b=pause/resume; c=stop
