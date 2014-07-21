@@ -28,11 +28,9 @@ class DieselCaptureDevice(Echo360CaptureDevice):
             elif url.scheme == 'http':
                 client = diesel.protocols.http.HttpClient(url.hostname, url.port or 80)
             resp = client.request(method, url.path, headers, body, timeout)
-        except SysCallError as e:
-            # this error popped up on a Sunday after the device was inactive for 3 days.
-            # SysCallError: (-1, 'Unexpected EOF')
-            return('unknown', 'Error: {0}'.format(repr(e)), {}, None)
         except Exception as e:
+            # the following error popped up on a Sunday after the device was inactive for 3 days:
+            # SysCallError: (-1, 'Unexpected EOF')
             return('unknown', 'Unknown error: {0}'.format(repr(e)), {}, None)
         #resp.status = 200 OK 
         (status, reason) = resp.status.split(' ', 1)
@@ -168,51 +166,52 @@ def read_button():
             except:
                 pass
 
-#def status_thread():
-#    #current_state = None
-#    while True:
-#        try:
-#            state = device.status_monitoring().state
-#        except socket.timeout:
-#            state = 'timeout'
-#        if state != current_state:
-#            output_queue.put(state)
-#            current_state = state
-#        time.sleep(1.0)
-
-def say_hi_forever():
-    while True:
-        output_queue.put('hi')
-        diesel.sleep(1.0)
-
 # Diesel loop - loops on device statis + 0.25 seconds
 def state_change_monitor():
     global device
     global current_state
     log.info('starting state change monitor for {0} user {1}'.format(device_uri, device_username))
-    try:
-        device = DieselCaptureDevice(device_uri, device_username, device_password, timeout=timeout)
-        if not device.connection_test.success():
-            log.warning('Connection not established: ' + str(device.connection_test._result_code))
-    except socket.timeout as e:
-        device = None
-        log.info('network timeout connecting to {0} as {1}'.format(device_uri, device_username))
-
-    # current_state = None
+    # Try to recover from errors
     while True:
-        mon = device.status_monitoring()
-        if mon.success():
-            state = mon.state
-            if state != current_state:
-                current_state = state
-                output_queue.put('State: ' + state)
-        else:
-            log.warning('Monitoring error: ' + str(mon))
-        diesel.sleep(0.25)
+        try:
+            device = DieselCaptureDevice(device_uri, device_username, device_password, timeout=timeout)
+            if device.connection_test.success():
+                # current_state = None
+                error_count = 0
+                while True:
+                    mon = device.status_monitoring()
+                    if mon.success():
+                        state = mon.state
+                        if state != current_state:
+                            current_state = state
+                            output_queue.put('State: ' + current_state)
+                    else:
+                        log.warning('Monitoring error: ' + str(mon))
+                        current_state = 'error'
+                        error_count += 1
+                        if error_count > 9:
+                            log.warning('Too many errors. Retry in 60 seconds.')
+                            break
+                    diesel.sleep(0.25)
+            else:
+                log.warning('Connection not established: {0}. Retry in 60 seconds.'.format(str(device.connection_test._result_code)))
+                current_state = 'No connection'
+                diesel.fork_from_thread(output_queue.put, current_state)
+        except socket.timeout as e:
+            device = None
+            log.info('network timeout connecting to {0} as {1}. Retry in 60 seconds.'.format(device_uri, device_username))
+            current_state = 'Exception'
+            diesel.fork_from_thread(output_queue.put, current_state)
+        # only try to reconnect every minute
+        diesel.sleep(60)
 
 if __name__ == '__main__':
     # future cli options
-    capture_location = sys.argv[1]
+    if len(sys.argv) == 2:
+        capture_location = sys.argv[1]
+    else:
+        print('The room_name must be specified.')
+        sys.exit(1)
     timeout = 5
     config_filename = 'echo360.config'
 
