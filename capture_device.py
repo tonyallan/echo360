@@ -63,7 +63,7 @@ class Echo360CaptureDevice(object):
             return('Invalid URL', 'Missing IP address or domain name.', {}, None)
         try:
             if url.scheme == 'https':
-                conn = capture_new_capture(url.hostname, url.port, timeout=self.timeout)
+                conn = httplib.HTTPSConnection(url.hostname, url.port, timeout=self.timeout)
             elif url.scheme == 'http':
                 conn = httplib.HTTPConnection(url.hostname, url.port, timeout=self.timeout)
             else:
