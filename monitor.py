@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 # A proof of concept script.
-# Works from an OS/X terminal window or a Raspberry Pi.
+# Works from an OS/X terminal window or a Raspberry Pi (optionally with an Adafruit 2x16 LCD).
 # Usage: sudo nohup python echo360/monitor.py room_name &
 
 from capture_device import Echo360CaptureDevice
@@ -13,7 +13,6 @@ import sys
 import thread
 import time
 import urlparse
-
 
 class DieselCaptureDevice(Echo360CaptureDevice):
     # use the Diesel HTTP methods so we can run in a simple loop.
@@ -36,8 +35,30 @@ class DieselCaptureDevice(Echo360CaptureDevice):
         (status, reason) = resp.status.split(' ', 1)
         return (int(status), reason, resp.headers, resp.response[0])
 
-# Diesel loop - waits on command_queue
+def local_time_now(format='%Y-%m-%d %H:%M'):
+    # return the local time
+    ts_struct_time = time.gmtime()
+    ts_datetime = datetime.datetime.fromtimestamp(time.mktime(ts_struct_time)) + \
+        datetime.timedelta(minutes = int(device.connection_test.utc_offset))
+        #datetime.timedelta(minutes = 600)
+    return ts_datetime.strftime(format)
+
+def state_machine(current, char):
+    # state transitions based on the current state and a command character
+    # states: inactive, waiting, active, paused, complete
+    # characters: a (start/extend), b (pause/resume), c (stop)
+    states = { # current_state?command_char:next
+        'inactive?a': 'start',  'inactive?b':  None,    'inactive?c':  None,
+        'waiting?a':   None,    'waiting?b':   None,    'waiting?c':   None,
+        'active?a':   'extend', 'active?b':   'pause',  'active?c':   'stop',
+        'paused?a':   'extend', 'paused?b':   'resume', 'paused?c':   'stop',
+        'complete?a': 'start',  'complete?b':  None,    'complete?c':  None,
+        }
+    return states[str(current) + '?' + char]
+
+# Diesel loop - process command_queue
 def device_command():
+    global current_state
     while True:
         c = command_queue.get()
         if device is None:
@@ -47,8 +68,9 @@ def device_command():
             # No extend command?
             if c == 'start':
                 #record for 90 minutes.
-                name = 'Lecture Capture {0} {1}'.format(time_now(), capture_location)
+                name = 'Lecture Capture {0} {1}'.format(local_time_now(), capture_location)
                 log.info('Name={0}'.format(name))
+                # record for 90 minutes
                 resp = device.capture_new_capture(60*90, capture_profile, name)
                 #print str(resp)
             elif c == 'pause':
@@ -56,6 +78,9 @@ def device_command():
             elif c == 'extend':
                 # extend by 10 minutes
                 resp = device.capture_extend(60*10)
+                # extend doesn't change the state so we clear the current state to 
+                # force it to be updated in the next status check
+                current_state = 'Extended'
             elif c == 'resume':
                 resp = device.capture_record()
             elif c == 'stop':
@@ -63,72 +88,47 @@ def device_command():
             if not resp.success():
                 log.warning(str(resp))
 
-def time_now(format='%Y-%m-%d %H:%M'):
-    ts_struct_time = time.gmtime()
-    ts_datetime = datetime.datetime.fromtimestamp(time.mktime(ts_struct_time)) + \
-        datetime.timedelta(minutes = 600)
-    ##############################datetime.timedelta(minutes = int(device.connection_test.utc_offset))
-    # '%Y-%m-%d\n%H:%M:%S'
-    return ts_datetime.strftime(format)
-
-def lcd_message(message):
-    if lcd is not None:
-        lcd.clear()
-        lcd.message('Echo360: {0}\n{1}'.format(capture_location, message))
-
-# Diesel loop - waits on output_queue
+# Diesel loop - process output_queue
 def text_output():
     while True:
-        v = output_queue.get()
-        log.info('Message: ' + v)
-        lcd_message(v)
-        diesel.sleep(0.1)
+        message = output_queue.get()
+        log.info(message)
+        if lcd is not None:
+            lcd.clear()
+            lcd.message('Echo360: {0}\n{1}'.format(capture_location, message))
 
-def change_state(current, char):
-    # state transitions for a three button input
-    # inactive, waiting, active, paused, complete
-    states = { # current_state?command_char:next
-        #'None?a':    'start',  'None?b':      None,    'None?c':      None,
-        'inactive?a': 'start',  'inactive?b':  None,    'inactive?c':  None,
-        'waiting?a':   None,    'waiting?b':   None,    'waiting?c':   None,
-        'active?a':   'extend', 'active?b':   'pause',  'active?c':   'stop',
-        'paused?a':   'extend', 'paused?b':   'resume', 'paused?c':   'stop',
-        'complete?a': 'start',  'complete?b':  None,    'complete?c':  None,
-        }
-    return states[str(current) + '?' + char]
-
-def execute_command(char):
-    log.info('Execute user command: {0}'.format(char))
-    if char == 't':
-        output_queue.put('Test command')
-    elif char == 's':
-        output_queue.put('State: ' + current_state)
-    else:
-        #try:
-            next = change_state(current_state, char)
+# Diesel loop - process each command character
+def execute_command():
+    while True:
+        char = command_char_queue.get()
+        log.info('Execute user command: {0}'.format(char))
+        if char == 't':
+            output_queue.put('Test command')
+        elif char == 's':
+            output_queue.put('State: ' + current_state)
+        else:
+            next = state_machine(current_state, char)
             if next is None:
                 log.info('State remains {0}'.format(current_state))
             else:
                 log.info('Change state to {0}'.format(next))
                 diesel.fork_from_thread(output_queue.put, 'Command: ' + next)
                 diesel.fork_from_thread(command_queue.put, next)                
-        #except:
-        #    pass
 
-# Diesel thread
+# Diesel thread - read characters from the command line
 def read_line_thread():
     try:
         log.info('Commands: a=start/extend; b=pause/resume; c=stop')
         while True:
             char = raw_input()
             if char in ['a', 'b', 'c','t', 's']:
-                execute_command(char)
+                diesel.fork_from_thread(command_char_queue.put, char) 
             else:
                 log.info('Ignored invalid command.')
     except:
         log.info('No command line input. Probably running as a daemon.')
 
-# Diesel loop - loops on LCD button pressed + 0.25 seconds
+# Diesel loop - loops on LCD button pressed + 0.15 seconds
 def read_button():
     if lcd is None:
         return
@@ -144,29 +144,12 @@ def read_button():
         for b in btn:
             if lcd.buttonPressed(b[0]):
                 if b is not prev:
-                    execute_command(b[1])
+                    diesel.fork_from_thread(command_char_queue.put, (b[1]))
                     prev = b
         diesel.sleep(0.15)
 
-    while True:
-        #log.info('Commands: a=start/extend; b=pause/resume; c=stop')
-        char = raw_input()
-        if char == 't':
-            log.info('Command test.')
-        elif char == 's':
-            state = device.status_monitoring().state
-            output_queue.put(state)
-        else:
-            try:
-                next = change_state(current, char)
-                if next is not None:
-                    current = next
-                    diesel.fork_from_thread(output_queue.put, next)
-                    diesel.fork_from_thread(command_queue.put, next)
-            except:
-                pass
-
-# Diesel loop - loops on device statis + 0.25 seconds
+# Diesel loop - poll device status every 0.25 seconds (or 60 seconds after 10 errors)
+# current_state is a bit of a hack. It can be a device state, Extended, Error,  No connection, Exception.
 def state_change_monitor():
     global device
     global current_state
@@ -187,7 +170,7 @@ def state_change_monitor():
                             output_queue.put('State: ' + current_state)
                     else:
                         log.warning('Monitoring error: ' + str(mon))
-                        current_state = 'error'
+                        current_state = 'Error'
                         error_count += 1
                         if error_count > 9:
                             log.warning('Too many errors. Retry in 60 seconds.')
@@ -206,7 +189,7 @@ def state_change_monitor():
         diesel.sleep(60)
 
 if __name__ == '__main__':
-    # future cli options
+    # process configuration
     if len(sys.argv) == 2:
         capture_location = sys.argv[1]
     else:
@@ -218,42 +201,41 @@ if __name__ == '__main__':
     config = ConfigParser.ConfigParser()
     config.readfp(open(config_filename))
 
-    device_uri = config.get('capture ' + capture_location, 'uri')
-    device_username = config.get('capture ' + capture_location, 'username')
-    device_password = config.get('capture ' + capture_location, 'password')
-    capture_profile = config.get('capture ' + capture_location, 'profile')
+    section = 'capture ' + capture_location
+    device_uri      = config.get(section, 'uri')
+    device_username = config.get(section, 'username')
+    device_password = config.get(section, 'password')
+    capture_profile = config.get(section, 'profile')
 
+    # start LCD if present
     lcd_path = 'Adafruit-Raspberry-Pi-Python-Code/Adafruit_CharLCDPlate'
     sys.path.append(lcd_path)
     try:
         from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
         lcd = Adafruit_CharLCDPlate()
-        lcd_start_message = None
         lcd.begin(16, 2)
-        lcd_message('Monitor starting')
-        lcd_start_message = 'LCD active.'
-    except ImportError:
+        lcd.message('Echo360\nMonitor starting')
+    except:
         lcd = None
-        lcd_start_message = 'Adafruit module not found. Cannot use LCD.'
-    except IOError as e:
-        lcd = None
-        lcd_start_message = 'Must run as root to use the LCD.'
 
+    # Diesel import takes a while on the Raspberry Pi (which is why it is after the first lcd message)
     import diesel
     from diesel.protocols.http import HttpClient, HttpsClient
 
     log = diesel.log.name('monitor')
-    if lcd_start_message is not None:
-        log.info(lcd_start_message)
 
+    # create Diesel queues
     output_queue = diesel.util.queue.Queue()
     command_queue = diesel.util.queue.Queue()
+    command_char_queue = diesel.util.queue.Queue()
 
     # Global written by state_change_monitor and read by 
     current_state = None
 
+    # Start Diesel
     thread.start_new_thread(read_line_thread, ())
-    diesel.quickstart(text_output, device_command, state_change_monitor, read_button)
+    diesel.quickstart(text_output, device_command, state_change_monitor, read_button, execute_command)
     if lcd is not None:
-        lcd_message('Monitor stopped')
-        time.sleep(1)
+        lcd.clear()
+        lcd.message('Echo360\nMonitor stopped')
+
