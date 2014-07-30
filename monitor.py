@@ -23,15 +23,14 @@ class DieselCaptureDevice(Echo360CaptureDevice):
         url = urlparse.urlparse(urlparse.urljoin(self.server, path))
         try:
             if url.scheme == 'https':
-                client = diesel.protocols.http.HttpsClient(url.hostname, url.port or 443)
+                client = diesel.protocols.http.HttpsClient(url.hostname, url.port or 443, timeout=timeout)
             elif url.scheme == 'http':
-                client = diesel.protocols.http.HttpClient(url.hostname, url.port or 80)
+                client = diesel.protocols.http.HttpClient(url.hostname, url.port or 80, timeout=timeout)
             resp = client.request(method, url.path, headers, body, timeout)
         except Exception as e:
             # the following error popped up on a Sunday after the device was inactive for 3 days:
             # SysCallError: (-1, 'Unexpected EOF')
             return('unknown', 'Unknown error: {0}'.format(repr(e)), {}, None)
-        #resp.status = 200 OK 
         (status, reason) = resp.status.split(' ', 1)
         return (int(status), reason, resp.headers, resp.response[0])
 
@@ -54,7 +53,10 @@ def state_machine(current, char):
         'paused?a':   'extend', 'paused?b':   'resume', 'paused?c':   'stop',
         'complete?a': 'start',  'complete?b':  None,    'complete?c':  None,
         }
-    return states[str(current) + '?' + char]
+    if current in ['inactive', 'waiting', 'active', 'paused', 'complete']:
+        return states[str(current) + '?' + char]
+    else:
+        return None
 
 # Diesel loop - process command_queue
 def device_command():
@@ -185,6 +187,12 @@ def state_change_monitor():
             log.info('network timeout connecting to {0} as {1}. Retry in 60 seconds.'.format(device_uri, device_username))
             current_state = 'Exception'
             diesel.fork_from_thread(output_queue.put, current_state)
+        except:
+            device = None
+            log.info('Unknown error. Retry in 60 seconds.')
+            current_state = 'Exception'
+            diesel.fork_from_thread(output_queue.put, current_state)
+
         # only try to reconnect every minute
         diesel.sleep(60)
 
@@ -230,7 +238,7 @@ if __name__ == '__main__':
     command_char_queue = diesel.util.queue.Queue()
 
     # Global written by state_change_monitor and read by 
-    current_state = None
+    current_state = 'Unknown'
 
     # Start Diesel
     thread.start_new_thread(read_line_thread, ())
