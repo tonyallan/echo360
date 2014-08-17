@@ -32,7 +32,7 @@ python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-status
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-capture --sleep 15
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-confidence --sleep 15
 ```
-The default username is `admin`.
+The default username is `admin`. Note all lecture controllers are able to use secure HTTP (HTTPS). If that is the case, use `http` instead of `https`.
 
 Replace the IP address (`10.10.10.10`) in the URL with the IP address of your Lecture Capture device.
 
