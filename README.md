@@ -27,6 +27,7 @@ python capture_device.py -s https://10.10.10.10 -p "letmein" -c extend --duratio
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c stop
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c ping --url www.google.com
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c traceroute --timeout 20 --url www.google.com
+python capture_device.py -s https://10.10.10.10 -p "letmein" -c log --count 3
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c system-info --timeout 20
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-status
 python capture_device.py -s https://10.10.10.10 -p "letmein" -c test-capture --sleep 15

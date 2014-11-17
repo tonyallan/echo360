@@ -30,6 +30,7 @@ import argparse
 import base64
 import datetime
 import httplib
+import json
 import socket
 import sys
 import time
@@ -430,14 +431,29 @@ class Echo360CaptureDevice(object):
         """
         raise "unimplemented"
 
-    def log_list_last_count(self, count):
+    def log_list_last_count(self, count, dump_xml=None):
         """
         (3.2.13) Retrieve the Last X Number of Log Messages
         Returns the last x number of log messages specified in the call. 
 
-        curl --silent --user $adminlogincreds --insecure --rl $apiurl"/log-list-last-count/3"
+        curl --silent --user $adminlogincreds --insecure --url $apiurl"/log-list-last-count/3"
         """
-        raise "unimplemented"
+        response = self.call_api('log-list-last-count/' + str(count), title='Retrieve the Last X Number of Log Messages', dump_xml=dump_xml)
+        if dump_xml:
+            return response
+        if response.xml() is not None:
+            xml = response.xml()
+            entries = []
+            for child in xml:
+                entry = {}
+                for line in child.text.split('\n'):
+                    if len(line) > 0:
+                        print line
+                        part = line.split(':', 1)
+                        entry[part[0]] = part[1].strip().replace('"', '')
+                entries.append(entry)
+            return entries # List of Dict's
+
 
     # (3.3) CaptureControlAPICalls
     # The API calls described below are used to create and manipulate captures performed by the capture device 
@@ -626,6 +642,9 @@ class Echo360CaptureDeviceResponse(object):
                 self._result_code = 'error'
                 self._result_message = self._xml.attrib['text']
 
+    def xml(self):
+        return self._xml
+
     def __str__(self):
         # Useful for testing and in CLI situations.
         if self.success():
@@ -662,7 +681,7 @@ if __name__ == '__main__':
         choices=['system-status', 'status', 
             'new-capture', 'confidence-monitor', 'pause', 'resume', 'extend', 'stop',
             'status-get-user-sections', 'status-get-user-ref', 'diagnostics-clear-cache',
-            'ping', 'traceroute', 'restart-all', 'reboot', 'system-info',
+            'ping', 'traceroute', 'restart-all', 'reboot', 'log', 'system-info',
             'status-captures', 'status-current-capture', 'status-next-capture',
             'test-system', 'test-status', 'test-capture', 'test-confidence'])
     parser.add_argument('--duration', help='duration (seconds)', default=3600+1800, type=int)
@@ -746,6 +765,8 @@ if __name__ == '__main__':
             print(str(device.diagnostics_restart_all()))
         elif args.command == 'reboot':
             print(str(device.diagnostics_reboot()))
+        elif args.command == 'log':
+            print(json.dumps(device.log_list_last_count(args.count, dump_xml=args.xml), indent=4, sort_keys=True))
         elif args.command == 'system-info':
             response = device.diagnostics_system_info_ifconfig()
             if response.success():
