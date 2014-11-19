@@ -448,12 +448,12 @@ class Echo360CaptureDevice(object):
                 entry = {}
                 for line in child.text.split('\n'):
                     if len(line) > 0:
-                        print line
+                        #print line
                         part = line.split(':', 1)
                         entry[part[0]] = part[1].strip().replace('"', '')
                 entries.append(entry)
-            return entries # List of Dict's
-
+            response.entries = entries # List of Dict's
+            return response 
 
     # (3.3) CaptureControlAPICalls
     # The API calls described below are used to create and manipulate captures performed by the capture device 
@@ -766,7 +766,7 @@ if __name__ == '__main__':
         elif args.command == 'reboot':
             print(str(device.diagnostics_reboot()))
         elif args.command == 'log':
-            print(json.dumps(device.log_list_last_count(args.count, dump_xml=args.xml), indent=4, sort_keys=True))
+            print(json.dumps(device.log_list_last_count(args.count, dump_xml=args.xml).entries, indent=4, sort_keys=True))
         elif args.command == 'system-info':
             response = device.diagnostics_system_info_ifconfig()
             if response.success():
