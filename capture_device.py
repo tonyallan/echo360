@@ -450,7 +450,7 @@ class Echo360CaptureDevice(object):
                     if len(line) > 0:
                         #print line
                         part = line.split(':', 1)
-                        entry[part[0]] = part[1].strip().replace('"', '')
+                        entry[part[0]] = part[1].replace('"', '').strip()
                 entries.append(entry)
             response.entries = entries # List of Dict's
             return response 
